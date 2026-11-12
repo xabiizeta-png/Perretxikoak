@@ -176,21 +176,15 @@ var SCI={
 };
 var VT={es:{t:"Hoy para",lv:["Muy poco probable","Poco probable","Posible","Buen momento"],fail:"Lo que más frena",sea:"Temporada",rain:"Lluvia",temp:"Temperatura",lag:"Días tras la lluvia",
   seaTxt:"{m}: {n} % de su temporada",rainTxt:"{a} mm en 26 días; necesita unos {b} mm",tempTxt:"{a} °C a 800 m; ideal entre {b} y {c} °C",lagTxt:"{a} días; ideal entre {b} y {c}",frost:"Ha helado estos días: resta probabilidad.",
-  where:"Mejor zona",noz:"ninguna zona destaca",swipe:"Desliza o toca para cambiar de provincia",lagNone:"sin lluvia fuerte en el último mes"},
+  where:"Mejor zona",noz:"ninguna zona destaca",swipe:"Desliza a los lados para cambiar de provincia",lagNone:"sin lluvia fuerte en el último mes"},
  eu:{t:"Gaur:",lv:["Oso aukera gutxi","Aukera gutxi","Litekeena","Une ona"],fail:"Gehien oztopatzen duena",sea:"Sasoia",rain:"Euria",temp:"Tenperatura",lag:"Egunak euriaren ondoren",
   seaTxt:"{m}: sasoiaren % {n}",rainTxt:"{a} mm 26 egunetan; {b} mm inguru behar ditu",tempTxt:"{a} °C 800 m-tan; egokiena {b} eta {c} °C artean",lagTxt:"{a} egun; egokiena {b} eta {c} artean",frost:"Izoztea egin du egunotan: aukera murrizten du.",
-  where:"Eremu onena",noz:"ez da eremurik nabarmentzen",swipe:"Irristatu edo ukitu probintzia aldatzeko",lagNone:"euri handirik gabe azken hilabetean"}};
+  where:"Eremu onena",noz:"ez da eremurik nabarmentzen",swipe:"Irristatu alboetara probintzia aldatzeko",lagNone:"euri handirik gabe azken hilabetean"}};
 var MFULL={es:["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"],eu:["urtarrila","otsaila","martxoa","apirila","maiatza","ekaina","uztaila","abuztua","iraila","urria","azaroa","abendua"]};
-var PORD=["Gipuzkoa","Bizkaia","Álava","Navarra","La Rioja","Burgos","Soria"],vProv=null;
+var PORD=["Gipuzkoa","Bizkaia","Álava","Navarra","La Rioja","Burgos","Soria"],vProv=null,vList=[];
 try{vProv=localStorage.getItem("setas-prov")||null;}catch(e){}
-function setProv(p){vProv=p;try{localStorage.setItem("setas-prov",p);}catch(e){}wxProv=p;renderVerdict();renderWeather();}
-function renderVerdict(){
-  var el=document.getElementById("verdict");if(!el)return;
-  var S=api.S,sp=api.SP[S.sp],T=VT[S.lang],C=api.CELLS,e=api.esc,i,bc=null;
-  var provs=PORD.filter(function(p){for(var j=0;j<C.length;j++)if(C[j].pn===p)return true;return false;});
-  for(i=0;i<C.length;i++){if(C[i].f&&(!bc||C[i].s>bc.s))bc=C[i];}
-  var cur=provs.length?((vProv&&provs.indexOf(vProv)>=0)?vProv:((bc&&bc.pn)||provs[0])):null;
-  var n=0,a={rain:0,temp:0},agg={},X=S;
+function vPanel(cur){
+  var S=api.S,sp=api.SP[S.sp],T=VT[S.lang],C=api.CELLS,e=api.esc,i,n=0,a={rain:0,temp:0},agg={},X=S;
   for(i=0;i<C.length;i++){var c=C[i],f=c.f;if(!f||(cur&&c.pn!==cur))continue;if(cur&&c.wx)X=c.wx;
     if(f.hab>0&&f.alt>0){n++;a.rain+=f.rain;a.temp+=f.temp;}
     if(c.z>=0){var g=agg[c.z]||(agg[c.z]={n:0,s:0});g.n++;g.s+=c.s;}}
@@ -202,23 +196,44 @@ function renderVerdict(){
             ["lag",fl,d>=45?T.lagNone:T.lagTxt.replace("{a}",X.days).replace("{b}",sp.lag[1]).replace("{c}",sp.lag[2])]];
   var lvl=bs<15?0:(bs<40?1:(bs<65?2:3)),col=["#7d8a84","#c9892b","#d9662a","#9b1c46"][lvl],worst=rows.slice().sort(function(x,y){return x[1]-y[1];})[0];
   function mark(v){return v>=0.66?['✓',"#1c8a5a"]:(v>=0.33?['~',"#c9892b"]:['✕',"#c2334d"]);}
-  var h="";
-  if(cur){h+='<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px">'+provs.map(function(p){var on=p===cur;return '<button type="button" data-vp="'+e(p)+'" aria-pressed="'+on+'" style="flex:none;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font:600 13px var(--body);cursor:pointer;background:'+(on?"var(--accent)":"var(--card)")+';color:'+(on?"var(--accent-ink)":"var(--ink)")+'">'+e(p)+'</button>';}).join("")+'</div>';}
-  h+='<div class="muted" style="font-size:12px">'+T.t+" "+e(sp[S.lang])+(cur?" \u00b7 "+e(cur):"")+'</div><div style="display:flex;align-items:center;gap:10px;margin:2px 0 8px"><span style="width:14px;height:14px;border-radius:50%;background:'+col+';flex:none"></span><span style="font:700 22px var(--display);line-height:1.15">'+T.lv[lvl]+'</span></div>';
+  var h='<div class="muted" style="font-size:12px">'+T.t+" "+e(sp[S.lang])+'</div>'+(cur?'<div style="font:700 26px var(--display);line-height:1.1;margin:2px 0 6px">'+e(cur)+'</div>':'')+
+    '<div style="display:flex;align-items:center;gap:10px;margin:2px 0 10px"><span style="width:14px;height:14px;border-radius:50%;background:'+col+';flex:none"></span><span style="font:700 20px var(--display);line-height:1.15">'+T.lv[lvl]+'</span></div>';
   h+='<div style="display:flex;flex-direction:column;gap:7px">'+rows.map(function(r){var m=mark(r[1]);return '<div style="display:flex;gap:10px;align-items:flex-start"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:'+m[1]+';color:#fff;font:700 14px/24px var(--body);text-align:center">'+m[0]+'</span><span style="min-width:0"><b>'+T[r[0]]+'</b><br><span class="muted">'+r[2]+'</span></span></div>';}).join("")+'</div>';
   if(lvl<3&&worst[1]<0.66)h+='<p style="margin-top:10px"><b>'+T.fail+":</b> "+T[worst[0]].toLowerCase()+'.</p>';
   if(X.frost)h+='<p class="muted">'+T.frost+'</p>';
   if(best>=0&&bs>=15)h+='<p class="muted"><b>'+T.where+":</b> "+e(api.ZONES[best][0])+'</p>';
-  if(cur){var k=provs.indexOf(cur);h+='<div style="display:flex;justify-content:center;gap:6px;margin-top:10px">'+provs.map(function(p,j){return '<span style="width:7px;height:7px;border-radius:50%;background:'+(j===k?"var(--accent)":"var(--line)")+'"></span>';}).join("")+'</div><p class="cred" style="text-align:center">'+T.swipe+'</p>';}
+  return h;
+}
+function vMark(){
+  var el=document.getElementById("verdict");if(!el||!el.querySelectorAll)return;
+  var k=vList.indexOf(vProv);
+  Array.prototype.forEach.call(el.querySelectorAll("[data-vp]"),function(b,j){var on=j===k;b.setAttribute("aria-pressed",on);b.style.background=on?"var(--accent)":"var(--card)";b.style.color=on?"var(--accent-ink)":"var(--ink)";if(on&&b.parentNode){var bar=b.parentNode,x=b.offsetLeft-bar.offsetLeft-(bar.clientWidth-b.offsetWidth)/2;if(bar.scrollTo)try{bar.scrollTo({left:x,behavior:"smooth"});}catch(e){bar.scrollLeft=x;}else bar.scrollLeft=x;}});
+  Array.prototype.forEach.call(el.querySelectorAll("[data-vd]"),function(d,j){d.style.background=j===k?"var(--accent)":"var(--line)";d.style.width=j===k?"18px":"7px";});
+}
+function vSet(p,scroll){
+  if(vList.indexOf(p)<0)return;
+  var ch=p!==vProv;vProv=p;try{localStorage.setItem("setas-prov",p);}catch(e){}
+  vMark();
+  var tr=document.getElementById("vtrack");
+  if(scroll&&tr){var x=vList.indexOf(p)*tr.clientWidth;if(tr.scrollTo)try{tr.scrollTo({left:x,behavior:"smooth"});}catch(e){tr.scrollLeft=x;}else tr.scrollLeft=x;}
+  if(ch){wxProv=p;renderWeather();}
+}
+function renderVerdict(){
+  var el=document.getElementById("verdict");if(!el)return;
+  var C=api.CELLS,e=api.esc,T=VT[api.S.lang],i,bc=null;
+  vList=PORD.filter(function(p){for(var j=0;j<C.length;j++)if(C[j].pn===p)return true;return false;});
+  if(!vList.length){el.innerHTML=vPanel(null);return;}
+  for(i=0;i<C.length;i++){if(C[i].f&&(!bc||C[i].s>bc.s))bc=C[i];}
+  if(!vProv||vList.indexOf(vProv)<0)vProv=(bc&&bc.pn)||vList[0];
+  var h='<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:6px;scrollbar-width:none">'+vList.map(function(p){return '<button type="button" data-vp="'+e(p)+'" style="flex:none;border:1px solid var(--line);border-radius:999px;padding:7px 12px;font:600 13px var(--body);cursor:pointer;transition:background .2s,color .2s">'+e(p)+'</button>';}).join("")+'</div>';
+  h+='<div id="vtrack" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;margin:0 -14px">'+vList.map(function(p){return '<div style="flex:0 0 100%;scroll-snap-align:center;scroll-snap-stop:always;padding:0 14px;min-width:0">'+vPanel(p)+'</div>';}).join("")+'</div>';
+  h+='<div style="display:flex;justify-content:center;align-items:center;gap:6px;margin-top:12px">'+vList.map(function(){return '<span data-vd style="height:7px;width:7px;border-radius:4px;background:var(--line);transition:width .2s,background .2s"></span>';}).join("")+'</div><p class="cred" style="text-align:center">'+T.swipe+'</p>';
   el.innerHTML=h;
-  if(!el._vp){el._vp=1;var x0=null,y0=null;
-    el.addEventListener("click",function(ev){var b=ev.target.closest?ev.target.closest("[data-vp]"):null;if(b)setProv(b.getAttribute("data-vp"));});
-    el.addEventListener("touchstart",function(ev){var t=ev.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
-    el.addEventListener("touchend",function(ev){if(x0===null)return;var t=ev.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;
-      if(Math.abs(dx)<50||Math.abs(dx)<Math.abs(dy)*1.5)return;if(ev.target.closest&&ev.target.closest("[data-vp]"))return;
-      var el2=document.getElementById("verdict"),on=el2.querySelector?el2.querySelector('[data-vp][aria-pressed="true"]'):null;if(!on)return;
-      var all=Array.prototype.map.call(el2.querySelectorAll("[data-vp]"),function(b){return b.getAttribute("data-vp");}),j=all.indexOf(on.getAttribute("data-vp"))+(dx<0?1:-1);
-      if(j>=0&&j<all.length)setProv(all[j]);},{passive:true});}
+  var tr=document.getElementById("vtrack");
+  if(tr){tr.scrollLeft=vList.indexOf(vProv)*tr.clientWidth;var tm=null;
+    if(tr.addEventListener)tr.addEventListener("scroll",function(){if(tm)clearTimeout(tm);tm=setTimeout(function(){var w=tr.clientWidth||1,j=Math.max(0,Math.min(vList.length-1,Math.round(tr.scrollLeft/w)));if(vList[j]!==vProv)vSet(vList[j],false);},90);},{passive:true});}
+  vMark();
+  if(!el._vp){el._vp=1;el.addEventListener("click",function(ev){var b=ev.target.closest?ev.target.closest("[data-vp]"):null;if(b)vSet(b.getAttribute("data-vp"),true);});}
 }
 function renderScience(){
   var el=document.getElementById("science");if(!el)return;
