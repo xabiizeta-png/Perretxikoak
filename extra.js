@@ -142,18 +142,6 @@ function renderTrees(){
   if(any)h+='<p class="cred">'+L("trCred")+'</p>';
   el.innerHTML=h;
 }
-var cv=null,wrap=null,zoom=1,relief=null,base=null,BX0=-4.45,BX1=-0.6,BY0=41.0,BY1=43.5;
-function setImg(){window.SETAS_RELIEF=(zoom>1&&base)?base:relief;}
-function centerOn(x,y){if(!wrap||!cv||zoom<=1)return;wrap.scrollLeft=(x-BX0)/(BX1-BX0)*cv.clientWidth-wrap.clientWidth/2;wrap.scrollTop=(BY1-y)/(BY1-BY0)*cv.clientHeight-wrap.clientHeight/2;}
-function setZoom(z){
-  z=Math.max(1,Math.min(3,z));if(z===zoom||!wrap||!cv)return;
-  var cx=(wrap.scrollLeft+wrap.clientWidth/2)/(cv.clientWidth||1),cy=(wrap.scrollTop+wrap.clientHeight/2)/(cv.clientHeight||1);
-  if(zoom===1)wrap.style.height=cv.clientHeight+"px";
-  zoom=z;cv.style.width=(z*100)+"%";if(z===1)wrap.style.height="";
-  if(z>1&&!base){var b=new Image();b.onload=function(){base=b;setImg();api.redraw();};b.src="img/base.jpg";}
-  setImg();api.redraw();
-  wrap.scrollLeft=cx*cv.clientWidth-wrap.clientWidth/2;wrap.scrollTop=cy*cv.clientHeight-wrap.clientHeight/2;
-}
 /* ---- Veredicto de hoy y base científica ---- */
 var SCI_URL={parlade:"https://www.sciencedirect.com/science/article/abs/pii/S0378112717301317",porcini:"https://www.biorxiv.org/content/10.64898/2025.12.12.693895v1.full.pdf",
  pinar:"https://elige.soria.es/productividad-micologica-en-pinar-grande/",varga:"https://pubmed.ncbi.nlm.nih.gov/23392533/",mpena:"https://www.researchgate.net/publication/237836204_Yield_models_for_ectomycorrhizal_mushrooms_in_Pinus_sylvestris_forests_with_special_focus_on_Boletus_edulis_and_Lactarius_group_deliciosus",
@@ -350,7 +338,6 @@ window.setasExtra={
     api=a;
     var WXP=window.SETAS_WEATHER&&window.SETAS_WEATHER.prov,PN=["Bizkaia","Gipuzkoa","Álava","Navarra","La Rioja","Soria","Burgos"];
     if(WXP)for(var ci=0;ci<api.CELLS.length;ci++){var cc=api.CELLS[ci],pw=WXP[PN[cc.pv]];if(pw){cc.wx=pw;cc.pn=PN[cc.pv];}}
-    var im=new Image();im.onload=function(){relief=im;setImg();api.redraw();};im.src="img/relief.png";
     var sm=document.getElementById("summary");
     if(sm&&sm.parentNode&&document.createElement){var vd=document.createElement("section");vd.className="card";vd.id="verdict";sm.parentNode.insertBefore(vd,sm);
       var mc=document.createElement("section");mc.className="card";mc.id="mooncard";sm.parentNode.insertBefore(mc,sm);
@@ -359,24 +346,22 @@ window.setasExtra={
       var pts=document.getElementById("pts"),ps=pts&&pts.closest?pts.closest("section"):null;if(ps)ps.style.display="none";
       if(document.head&&document.createElement){var st=document.createElement("style");st.textContent="#save{display:none!important}";document.head.appendChild(st);}
       var pl=document.getElementById("places");if(pl&&pl.parentNode){var sc=document.createElement("section");sc.className="card";sc.id="science";pl.parentNode.insertBefore(sc,pl);}}
-    cv=document.getElementById("map");
-    if(cv&&cv.parentNode){
-      wrap=document.createElement("div");wrap.style.cssText="overflow:auto;border-radius:8px;-webkit-overflow-scrolling:touch";
-      cv.parentNode.insertBefore(wrap,cv);wrap.appendChild(cv);
-      var sec=wrap.parentNode;sec.style.position="relative";
+    var cv=document.getElementById("map");
+    if(cv&&cv.parentNode&&api.zoom){
+      var sec=cv.parentNode;sec.style.position="relative";
       var ctl=document.createElement("div");ctl.style.cssText="position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:6px;z-index:2";
-      ["+","\u2212"].forEach(function(sym,i){var b=document.createElement("button");b.type="button";b.textContent=sym;b.setAttribute("aria-label",i?"Alejar":"Acercar");
-        b.style.cssText="width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:700 20px/1 var(--body);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)";
-        b.onclick=function(){setZoom(zoom+(i?-1:1));};ctl.appendChild(b);});
+      [["+","Acercar",function(){api.zoom(1.7);}],["\u2212","Alejar",function(){api.zoom(1/1.7);}],["\u2922","Mapa grande",function(){this.textContent=api.expand()?"\u2921":"\u2922";}]].forEach(function(d){var b=document.createElement("button");b.type="button";b.textContent=d[0];b.setAttribute("aria-label",d[1]);
+        b.style.cssText="width:42px;height:42px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:700 20px/1 var(--body);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)";
+        b.onclick=d[2];ctl.appendChild(b);});
       sec.appendChild(ctl);
-      var at=document.createElement("p");at.className="cred";at.style.margin="2px 4px 0";at.textContent="Mapa al ampliar: \u00a9 OpenStreetMap \u00b7 Relieve: Terrain Tiles (Mapzen)";sec.appendChild(at);
+      var at=document.createElement("p");at.className="cred";at.style.margin="2px 4px 0";at.textContent="Pellizca con dos dedos para ampliar. Mapa: \u00a9 OpenStreetMap \u00b7 Relieve: Terrain Tiles (Mapzen)";sec.appendChild(at);
     }
     var el=document.getElementById("places");
     if(el)el.addEventListener("click",function(ev){
       var b=ev.target.closest("[data-mode]");
       if(b){mode=b.getAttribute("data-mode");renderPlaces();api.redraw();return;}
       var g=ev.target.closest("[data-go]");
-      if(g){var p=rank[mode][+g.getAttribute("data-go")];if(p&&p.c){api.select(p.c);centerOn(p.c.x,p.c.y);var m=wrap||document.getElementById("map");if(m&&m.scrollIntoView)m.scrollIntoView({block:"center"});}}
+      if(g){var p=rank[mode][+g.getAttribute("data-go")];if(p&&p.c){api.select(p.c);if(api.centerOn)api.centerOn(p.c.x,p.c.y,3);var m=document.getElementById("map");if(m&&m.scrollIntoView)m.scrollIntoView({block:"center"});}}
     });
   },
   refresh:function(){if(!api)return;compute();renderVerdict();renderMoon();renderWeather();renderScience();renderTrees();renderPlaces();renderPrices();},
