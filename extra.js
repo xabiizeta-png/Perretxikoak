@@ -176,32 +176,49 @@ var SCI={
 };
 var VT={es:{t:"Hoy para",lv:["Muy poco probable","Poco probable","Posible","Buen momento"],fail:"Lo que más frena",sea:"Temporada",rain:"Lluvia",temp:"Temperatura",lag:"Días tras la lluvia",
   seaTxt:"{m}: {n} % de su temporada",rainTxt:"{a} mm en 26 días; necesita unos {b} mm",tempTxt:"{a} °C a 800 m; ideal entre {b} y {c} °C",lagTxt:"{a} días; ideal entre {b} y {c}",frost:"Ha helado estos días: resta probabilidad.",
-  where:"Mejor zona",noz:"ninguna zona destaca",note:"Estimación con el tiempo medido por AEMET en cada provincia y los umbrales de cada seta. Los datos de arriba son los de la provincia con mejor pronóstico."},
+  where:"Mejor zona",noz:"ninguna zona destaca",swipe:"Desliza o toca para cambiar de provincia",lagNone:"sin lluvia fuerte en el último mes"},
  eu:{t:"Gaur:",lv:["Oso aukera gutxi","Aukera gutxi","Litekeena","Une ona"],fail:"Gehien oztopatzen duena",sea:"Sasoia",rain:"Euria",temp:"Tenperatura",lag:"Egunak euriaren ondoren",
   seaTxt:"{m}: sasoiaren % {n}",rainTxt:"{a} mm 26 egunetan; {b} mm inguru behar ditu",tempTxt:"{a} °C 800 m-tan; egokiena {b} eta {c} °C artean",lagTxt:"{a} egun; egokiena {b} eta {c} artean",frost:"Izoztea egin du egunotan: aukera murrizten du.",
-  where:"Eremu onena",noz:"ez da eremurik nabarmentzen",note:"Estimazioa, AEMETek probintzia bakoitzean neurtutako eguraldiarekin eta perretxiko bakoitzaren atalaseekin. Goiko datuak iragarpen onena duen probintziakoak dira."}};
+  where:"Eremu onena",noz:"ez da eremurik nabarmentzen",swipe:"Irristatu edo ukitu probintzia aldatzeko",lagNone:"euri handirik gabe azken hilabetean"}};
 var MFULL={es:["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"],eu:["urtarrila","otsaila","martxoa","apirila","maiatza","ekaina","uztaila","abuztua","iraila","urria","azaroa","abendua"]};
+var PORD=["Gipuzkoa","Bizkaia","Álava","Navarra","La Rioja","Burgos","Soria"],vProv=null;
+try{vProv=localStorage.getItem("setas-prov")||null;}catch(e){}
+function setProv(p){vProv=p;try{localStorage.setItem("setas-prov",p);}catch(e){}wxProv=p;renderVerdict();renderWeather();}
 function renderVerdict(){
   var el=document.getElementById("verdict");if(!el)return;
-  var S=api.S,sp=api.SP[S.sp],T=VT[S.lang],C=api.CELLS,e=api.esc,n=0,a={rain:0,temp:0},agg={},i;
-  for(i=0;i<C.length;i++){var c=C[i],f=c.f;if(!f)continue;if(f.hab>0&&f.alt>0){n++;a.rain+=f.rain;a.temp+=f.temp;}if(c.z>=0){var g=agg[c.z]||(agg[c.z]={n:0,s:0});g.n++;g.s+=c.s;}}
-  var best=-1,bs=0;Object.keys(agg).forEach(function(k){var m=agg[k].s/agg[k].n;if(m>bs){bs=m;best=+k;}});
-  var bc=null;for(i=0;i<C.length;i++){if(C[i].f&&(!bc||C[i].s>bc.s))bc=C[i];}
-  var X=(bc&&bc.wx)||S,pn=(bc&&bc.wx&&bc.pn)?" ("+bc.pn+")":"";
-  if(bc&&bc.wx){n=0;a={rain:0,temp:0};for(i=0;i<C.length;i++){var c2=C[i];if(c2.pn===bc.pn&&c2.f&&c2.f.hab>0&&c2.f.alt>0){n++;a.rain+=c2.f.rain;a.temp+=c2.f.temp;}}}
+  var S=api.S,sp=api.SP[S.sp],T=VT[S.lang],C=api.CELLS,e=api.esc,i,bc=null;
+  var provs=PORD.filter(function(p){for(var j=0;j<C.length;j++)if(C[j].pn===p)return true;return false;});
+  for(i=0;i<C.length;i++){if(C[i].f&&(!bc||C[i].s>bc.s))bc=C[i];}
+  var cur=provs.length?((vProv&&provs.indexOf(vProv)>=0)?vProv:((bc&&bc.pn)||provs[0])):null;
+  var n=0,a={rain:0,temp:0},agg={},X=S;
+  for(i=0;i<C.length;i++){var c=C[i],f=c.f;if(!f||(cur&&c.pn!==cur))continue;if(cur&&c.wx)X=c.wx;
+    if(f.hab>0&&f.alt>0){n++;a.rain+=f.rain;a.temp+=f.temp;}
+    if(c.z>=0){var g=agg[c.z]||(agg[c.z]={n:0,s:0});g.n++;g.s+=c.s;}}
+  var best=-1,bs=0;Object.keys(agg).forEach(function(k){if(agg[k].n<3)return;var m=agg[k].s/agg[k].n;if(m>bs){bs=m;best=+k;}});
   var lag=[sp.lag[0]-1,sp.lag[1],sp.lag[2],sp.lag[3]],d=X.days,fl=(d<=lag[0]||d>=lag[3])?0:(d<lag[1]?(d-lag[0])/(lag[1]-lag[0]):(d>lag[2]?(lag[3]-d)/(lag[3]-lag[2]):1));
   var rows=[["sea",sp.m[S.month],T.seaTxt.replace("{m}",MFULL[S.lang][S.month]).replace("{n}",Math.round(sp.m[S.month]*100))],
-            ["rain",n?a.rain/n:0,T.rainTxt.replace("{a}",X.rain).replace("{b}",sp.rain)+pn],
-            ["temp",n?a.temp/n:0,T.tempTxt.replace("{a}",X.temp).replace("{b}",sp.t[1]).replace("{c}",sp.t[2])+pn],
-            ["lag",fl,T.lagTxt.replace("{a}",X.days).replace("{b}",sp.lag[1]).replace("{c}",sp.lag[2])+pn]];
+            ["rain",n?a.rain/n:0,T.rainTxt.replace("{a}",X.rain).replace("{b}",sp.rain)],
+            ["temp",n?a.temp/n:0,T.tempTxt.replace("{a}",X.temp).replace("{b}",sp.t[1]).replace("{c}",sp.t[2])],
+            ["lag",fl,d>=45?T.lagNone:T.lagTxt.replace("{a}",X.days).replace("{b}",sp.lag[1]).replace("{c}",sp.lag[2])]];
   var lvl=bs<15?0:(bs<40?1:(bs<65?2:3)),col=["#7d8a84","#c9892b","#d9662a","#9b1c46"][lvl],worst=rows.slice().sort(function(x,y){return x[1]-y[1];})[0];
   function mark(v){return v>=0.66?['✓',"#1c8a5a"]:(v>=0.33?['~',"#c9892b"]:['✕',"#c2334d"]);}
-  var h='<div class="muted" style="font-size:12px">'+T.t+" "+e(sp[S.lang])+'</div><div style="display:flex;align-items:center;gap:10px;margin:2px 0 8px"><span style="width:14px;height:14px;border-radius:50%;background:'+col+';flex:none"></span><span style="font:700 22px var(--display);line-height:1.15">'+T.lv[lvl]+'</span></div>';
+  var h="";
+  if(cur){h+='<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px">'+provs.map(function(p){var on=p===cur;return '<button type="button" data-vp="'+e(p)+'" aria-pressed="'+on+'" style="flex:none;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font:600 13px var(--body);cursor:pointer;background:'+(on?"var(--accent)":"var(--card)")+';color:'+(on?"var(--accent-ink)":"var(--ink)")+'">'+e(p)+'</button>';}).join("")+'</div>';}
+  h+='<div class="muted" style="font-size:12px">'+T.t+" "+e(sp[S.lang])+(cur?" \u00b7 "+e(cur):"")+'</div><div style="display:flex;align-items:center;gap:10px;margin:2px 0 8px"><span style="width:14px;height:14px;border-radius:50%;background:'+col+';flex:none"></span><span style="font:700 22px var(--display);line-height:1.15">'+T.lv[lvl]+'</span></div>';
   h+='<div style="display:flex;flex-direction:column;gap:7px">'+rows.map(function(r){var m=mark(r[1]);return '<div style="display:flex;gap:10px;align-items:flex-start"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:'+m[1]+';color:#fff;font:700 14px/24px var(--body);text-align:center">'+m[0]+'</span><span style="min-width:0"><b>'+T[r[0]]+'</b><br><span class="muted">'+r[2]+'</span></span></div>';}).join("")+'</div>';
   if(lvl<3&&worst[1]<0.66)h+='<p style="margin-top:10px"><b>'+T.fail+":</b> "+T[worst[0]].toLowerCase()+'.</p>';
   if(X.frost)h+='<p class="muted">'+T.frost+'</p>';
-  h+='<p class="muted"><b>'+T.where+":</b> "+(best>=0&&bs>=15?e(api.ZONES[best][0]):T.noz)+'</p><p class="cred">'+T.note+'</p>';
+  if(best>=0&&bs>=15)h+='<p class="muted"><b>'+T.where+":</b> "+e(api.ZONES[best][0])+'</p>';
+  if(cur){var k=provs.indexOf(cur);h+='<div style="display:flex;justify-content:center;gap:6px;margin-top:10px">'+provs.map(function(p,j){return '<span style="width:7px;height:7px;border-radius:50%;background:'+(j===k?"var(--accent)":"var(--line)")+'"></span>';}).join("")+'</div><p class="cred" style="text-align:center">'+T.swipe+'</p>';}
   el.innerHTML=h;
+  if(!el._vp){el._vp=1;var x0=null,y0=null;
+    el.addEventListener("click",function(ev){var b=ev.target.closest?ev.target.closest("[data-vp]"):null;if(b)setProv(b.getAttribute("data-vp"));});
+    el.addEventListener("touchstart",function(ev){var t=ev.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
+    el.addEventListener("touchend",function(ev){if(x0===null)return;var t=ev.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;
+      if(Math.abs(dx)<50||Math.abs(dx)<Math.abs(dy)*1.5)return;if(ev.target.closest&&ev.target.closest("[data-vp]"))return;
+      var el2=document.getElementById("verdict"),on=el2.querySelector?el2.querySelector('[data-vp][aria-pressed="true"]'):null;if(!on)return;
+      var all=Array.prototype.map.call(el2.querySelectorAll("[data-vp]"),function(b){return b.getAttribute("data-vp");}),j=all.indexOf(on.getAttribute("data-vp"))+(dx<0?1:-1);
+      if(j>=0&&j<all.length)setProv(all[j]);},{passive:true});}
 }
 function renderScience(){
   var el=document.getElementById("science");if(!el)return;
