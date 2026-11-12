@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de setas</title>
+<meta name="theme-color" content="#1c6b58">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Setas">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one column tool. Species tabs on top, map as the main surface, conditions and detail below. */
+:root{
+  --bg:#f1f4ef; --card:#ffffff; --ink:#1b2924; --muted:#5b6a63; --line:#d5dcd5;
+  --accent:#1c6b58; --accent-ink:#ffffff; --land:#dfe5dc; --warn:#9b1c46;
+  --display:"Bricolage Grotesque","Trebuchet MS",sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111916; --card:#1a2521; --ink:#e5ece8; --muted:#9aaaa2; --line:#2d3b35;
+    --accent:#62c7a8; --accent-ink:#0d1512; --land:#26332e; --warn:#f08aa6; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111916; --card:#1a2521; --ink:#e5ece8; --muted:#9aaaa2; --line:#2d3b35;
+  --accent:#62c7a8; --accent-ink:#0d1512; --land:#26332e; --warn:#f08aa6; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+main{max-width:720px;margin:0 auto;padding:16px;padding-top:max(16px,env(safe-area-inset-top));display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-size:24px;line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-size:17px;margin:0 0 8px;text-wrap:balance}
+.lang{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.lang button{border:0;background:var(--card);color:var(--muted);font:600 13px var(--body);padding:7px 11px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.tabs button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);font:500 14px var(--body);padding:8px 13px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button:focus-visible,select:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sphead{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+.sphead h2{margin:0 0 2px}
+.sphead a{color:var(--accent);font-size:13px}
+.photo{flex:none;width:100%;min-height:96px;border-radius:10px;border:1px dashed var(--muted);background:var(--bg);color:var(--muted);font:500 12px var(--body);padding:0;overflow:hidden;cursor:pointer}
+.photo.has{border-style:solid;border-color:var(--line)}
+.photo img{width:100%;height:auto;max-height:420px;object-fit:contain;display:block}
+.photo span{display:block;padding:6px}
+#f-sp{font-weight:600;padding:11px 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.sci{color:var(--muted);font-style:italic;font-size:13px}
+.best{display:flex;flex-direction:column;gap:6px;margin:10px 0 0;padding:0;list-style:none}
+.best li{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.pill{font:600 12px var(--body);padding:3px 9px;border-radius:999px;color:#fff;font-variant-numeric:tabular-nums;flex:none}
+.mapwrap{padding:8px}
+canvas{display:block;width:100%;border-radius:8px;touch-action:manipulation;cursor:pointer}
+.legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);padding:8px 4px 2px}
+.legend .bar{flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#e6d58a,#f0b23e,#e06a2c,#9b1c46)}
+.rows{display:flex;flex-direction:column;gap:12px}
+.row label{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted);margin-bottom:2px}
+.row label b{color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:15px var(--body)}
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.presets button,.btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);font:500 13px var(--body);padding:7px 11px;border-radius:8px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.check{display:flex;align-items:center;gap:8px;font-size:14px}
+.factors{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px;margin:10px 0}
+.factors .track{height:6px;background:var(--land);border-radius:3px;overflow:hidden}
+.factors .fill{height:100%;background:var(--accent)}
+.factors span:nth-child(3n){font-variant-numeric:tabular-nums;color:var(--muted)}
+.muted{color:var(--muted);font-size:13px}
+.warn{border-left:4px solid var(--warn);padding-left:10px}
+.warn strong{color:var(--warn)}
+.pts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.pts li{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px}
+p{margin:6px 0}
+.trees{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.trees li{display:flex;flex-direction:column;gap:6px}
+.trees img{width:100%;height:auto;max-height:340px;object-fit:contain;background:var(--bg);border-radius:10px;border:1px solid var(--line);display:block}
+.cred{font-size:11px;color:var(--muted);margin-top:4px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:10px}
+.seg button{flex:1;border:0;background:var(--card);color:var(--muted);font:600 13px var(--body);padding:9px 11px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.rank{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:6px}
+.rank button{width:100%;display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:500 14px var(--body);padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left}
+.rank .num{flex:none;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--card);font:700 12px var(--body);display:flex;align-items:center;justify-content:center}
+.rank .nm{flex:1;min-width:0}
+.quotes{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:12px}
+.quotes li{border:1px solid var(--line);border-radius:8px;padding:10px}
+.quotes a{color:var(--accent);font-size:13px}
+.q{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.price{font:700 22px var(--display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.price small{font:500 12px var(--body);color:var(--muted)}
+.spark{display:flex;align-items:flex-end;gap:8px;margin:10px 0 6px}
+.spark div{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.spark i{display:block;width:100%;max-width:44px;background:var(--accent);border-radius:3px 3px 0 0}
+.spark .val{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 data-i="title"></h1>
+    <div class="lang" role="group" aria-label="Idioma / Hizkuntza">
+      <button type="button" id="lang-es">ES</button>
+      <button type="button" id="lang-eu">EU</button>
+    </div>
+  </header>
+
+  <div class="row"><label for="f-sp"><span data-i="spLabel"></span></label><select id="f-sp"></select></div>
+  <input type="file" id="f-photo" accept="image/*" hidden>
+
+  <section class="card" id="summary"></section>
+
+  <section class="card mapwrap">
+    <canvas id="map" tabindex="0"></canvas>
+    <div class="legend"><span data-i="low"></span><div class="bar"></div><span data-i="high"></span></div>
+  </section>
+
+  <section class="card" id="detail"></section>
+
+  <section class="card" id="trees"></section>
+
+  <section class="card" id="places"></section>
+
+  <section class="card" id="prices"></section>
+
+  <section class="card">
+    <h2 data-i="cond"></h2>
+    <p class="muted" data-i="condNote"></p>
+    <div class="presets" id="presets"></div>
+    <div class="rows">
+      <div class="row"><label for="f-month"><span data-i="month"></span></label><select id="f-month"></select></div>
+      <div class="row"><label for="f-rain"><span data-i="rain"></span><b id="v-rain"></b></label><input type="range" id="f-rain" min="0" max="150" step="5"></div>
+      <div class="row"><label for="f-temp"><span data-i="temp"></span><b id="v-temp"></b></label><input type="range" id="f-temp" min="0" max="26" step="1"></div>
+      <div class="row"><label for="f-days"><span data-i="days"></span><b id="v-days"></b></label><input type="range" id="f-days" min="0" max="45" step="1"></div>
+      <label class="check" for="f-frost"><input type="checkbox" id="f-frost"><span data-i="frost"></span></label>
+      <p class="muted" id="moon"></p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 data-i="myPts"></h2>
+    <ul class="pts" id="pts"></ul>
+    <p class="muted" data-i="ptsNote"></p>
+  </section>
+
+  <section class="card warn">
+    <p><strong data-i="warnT"></strong></p>
+    <p data-i="warnB"></p>
+  </section>
+  <p class="cred">Fotos: Wikimedia Commons — Cactusleroydlapatee, G. Chernilevsky, Strobilomyces / Ak ccm, H. Krisp, A. Kunze, J. Marqua, Pau Cabot, Lord Mayonnaise (Mushroom Observer), Lukas Large; licencias CC BY-SA y dominio público.</p>
+</main>
+
+<script src="elev.js"></script>
+<script src="sightings.js"></script>
+<script src="weather.js"></script>
+<script src="data.js"></script>
+<script src="extra.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
